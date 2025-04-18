@@ -115,8 +115,8 @@ def setup_logging(tui_callback=None, secure_logging=True):
     # Set lower level for third-party libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.getLogger("github").setLevel(logging.DEBUG)  # Set to DEBUG
-    logging.getLogger("huggingface_hub").setLevel(logging.DEBUG)  # Set to DEBUG
+    logging.getLogger("github").setLevel(logging.WARNING)  # Changed from DEBUG to WARNING
+    logging.getLogger("huggingface_hub").setLevel(logging.WARNING)  # Changed from DEBUG to WARNING
     
     # Set higher log levels for OpenAI libraries and HTTP components to reduce verbosity
     logging.getLogger("openai").setLevel(logging.WARNING)
@@ -129,5 +129,10 @@ def setup_logging(tui_callback=None, secure_logging=True):
     
     # For AI guided option specifically, suppress low-level logs
     logging.getLogger("utils.llm_client").setLevel(logging.INFO)
+    
+    # Also set higher log levels for GitHub-related modules
+    logging.getLogger("github.client").setLevel(logging.WARNING)
+    logging.getLogger("github.repository").setLevel(logging.WARNING)
+    logging.getLogger("github.content_fetcher").setLevel(logging.WARNING)
 
-    logging.info("Logging configured with DEBUG level for real-time updates")
+    logging.info("Logging configured with selective DEBUG level for real-time updates")
