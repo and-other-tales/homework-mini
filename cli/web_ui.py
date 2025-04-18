@@ -1,88 +1,76 @@
 import logging
 from api.server import start_server_with_ui, stop_server, is_server_running, get_server_info
 from config.credentials_manager import CredentialsManager
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import (
+    Header,
+    Footer,
+    Button,
+    TextInput,
+    Label,
+    Panel,
+    Markdown,
+    ListView,
+)
 
 logger = logging.getLogger(__name__)
 
-def web_ui():
-    print("\n----- Launch Web UI -----")
-    
-    # Check if server is already running
-    if is_server_running():
-        server_info = get_server_info()
-        print(f"Server is already running.")
-        
-        # Ask if user wants to re-launch with web UI
-        relaunch = input("Do you want to stop the current server and relaunch with web UI? (y/n): ")
-        if relaunch.lower() == 'y':
-            print("Stopping current server...")
-            stop_server()
-            
-            # Choose HTTP or HTTPS
-            print("\nConnection Security:")
-            print("1. HTTP (standard, no security)")
-            print("2. HTTPS with self-signed certificates")
-            
-            security_choice = input("Enter choice (1-2): ")
-            use_https = security_choice == "2"
-            
-            if use_https:
-                # Ask about certificate generation
-                print("\nCertificate Options:")
-                print("1. Generate new self-signed certificates")
-                print("2. Use existing certificates")
-                
-                cert_choice = input("Enter choice (1-2): ")
-                generate_cert = cert_choice == "1"
-                
-                cert_file = None
-                key_file = None
-                
-                # If using existing certificates, get file paths
-                if not generate_cert:
-                    cert_file = input("Enter path to certificate file: ")
-                    key_file = input("Enter path to key file: ")
-            else:
-                # HTTP mode
-                use_https = False
-                generate_cert = False
-                cert_file = None
-                key_file = None
-            
-            # Launch web UI with selected options
-            if run_web_ui(
-                use_https=use_https,
-                cert_file=cert_file,
-                key_file=key_file,
-                generate_cert=generate_cert
-            ):
-                # Return to menu
-                return
-            else:
-                print("Failed to start web UI")
-        else:
-            print("Continuing with current server")
-    else:
+class WebUIApp(App):
+    CSS_PATH = "tui_app.css"
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
+        yield Container(
+            Horizontal(
+                Vertical(
+                    Label("Web UI"),
+                    Button("Start Web UI", id="start_web_ui"),
+                    Button("Stop Web UI", id="stop_web_ui"),
+                    Button("Return to Main Menu", id="return_main"),
+                    id="left_panel",
+                ),
+                Vertical(
+                    Panel(Markdown("## Web UI Status")),
+                    ListView(id="status_list"),
+                    id="right_panel",
+                ),
+                id="main_container",
+            )
+        )
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "start_web_ui":
+            await self.start_web_ui()
+        elif event.button.id == "stop_web_ui":
+            await self.stop_web_ui()
+        elif event.button.id == "return_main":
+            self.exit()
+
+    async def start_web_ui(self):
+        self.query_one(ListView).append(Label("Starting Web UI..."))
+
         # Choose HTTP or HTTPS
-        print("\nConnection Security:")
-        print("1. HTTP (standard, no security)")
-        print("2. HTTPS with self-signed certificates")
-        
+        self.query_one(ListView).append(Label("\nConnection Security:"))
+        self.query_one(ListView).append(Label("1. HTTP (standard, no security)"))
+        self.query_one(ListView).append(Label("2. HTTPS with self-signed certificates"))
+
         security_choice = input("Enter choice (1-2): ")
         use_https = security_choice == "2"
-        
+
         if use_https:
             # Ask about certificate generation
-            print("\nCertificate Options:")
-            print("1. Generate new self-signed certificates")
-            print("2. Use existing certificates")
-            
+            self.query_one(ListView).append(Label("\nCertificate Options:"))
+            self.query_one(ListView).append(Label("1. Generate new self-signed certificates"))
+            self.query_one(ListView).append(Label("2. Use existing certificates"))
+
             cert_choice = input("Enter choice (1-2): ")
             generate_cert = cert_choice == "1"
-            
+
             cert_file = None
             key_file = None
-            
+
             # If using existing certificates, get file paths
             if not generate_cert:
                 cert_file = input("Enter path to certificate file: ")
@@ -93,7 +81,7 @@ def web_ui():
             generate_cert = False
             cert_file = None
             key_file = None
-        
+
         # Launch web UI with selected options
         if run_web_ui(
             use_https=use_https,
@@ -101,13 +89,19 @@ def web_ui():
             key_file=key_file,
             generate_cert=generate_cert
         ):
-            # Ask if user wants to continue in CLI mode
-            cli_continue = input("\nWeb UI is now running. Do you want to continue in CLI mode? (y/n): ")
-            if cli_continue.lower() != 'y':
-                print("Exiting CLI mode. The web UI will continue running in the background.")
-                return
+            self.query_one(ListView).append(Label("Web UI started successfully"))
         else:
-            print("Failed to start web UI")
+            self.query_one(ListView).append(Label("Failed to start Web UI"))
+
+    async def stop_web_ui(self):
+        if stop_server():
+            self.query_one(ListView).append(Label("Web UI stopped successfully"))
+        else:
+            self.query_one(ListView).append(Label("Failed to stop Web UI"))
+
+def web_ui():
+    app = WebUIApp()
+    app.run()
 
 def run_web_ui(use_https=False, cert_file=None, key_file=None, generate_cert=False):
     """Run the web UI interface with optional HTTPS support.

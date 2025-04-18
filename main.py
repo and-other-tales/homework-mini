@@ -14,6 +14,7 @@ from utils.task_scheduler import TaskScheduler
 from api.server import start_server, stop_server, is_server_running, get_server_info, start_server_with_ui
 from threading import Event, current_thread
 from cli.main_menu import main_menu
+from cli.tui_app import TUIApp
 
 # Global cancellation event for stopping ongoing tasks
 global_cancellation_event = Event()
@@ -329,8 +330,8 @@ def main():
             clean_shutdown()
             return 0
         else:
-            # No command or unknown command, run interactive CLI
-            main_menu()
+            # No command or unknown command, run TUI application
+            TUIApp().run()
             clean_shutdown()
             return 0
     except KeyboardInterrupt:

@@ -22,138 +22,102 @@ from cli.web_ui import web_ui
 from cli.configuration import configuration
 from cli.ai_assistant import ai_assistant
 
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import (
+    Header,
+    Footer,
+    Button,
+    TextInput,
+    Label,
+    Panel,
+    Markdown,
+    Status,
+    ListView,
+    Checkbox,
+    Frame,
+)
+
 # Global cancellation event for stopping ongoing tasks
 global_cancellation_event = Event()
 
 # Global logger
 logger = logging.getLogger(__name__)
 
-def main_menu():
-    """Run the command-line interface."""
-    from huggingface.dataset_manager import DatasetManager
-    
-    print("\n===== othertales homework =====")
-    print("CLI mode\n")
-    print("Press Ctrl+C at any time to safely exit the application")
-    
-    # Initialize managers and clients
-    credentials_manager = CredentialsManager()
-    _, huggingface_token = credentials_manager.get_huggingface_credentials()
-    dataset_manager = DatasetManager(huggingface_token=huggingface_token, credentials_manager=credentials_manager) if huggingface_token else None
-    task_tracker = TaskTracker()
-    web_crawler = None
-    dataset_creator = None
-    
-    print("Initialization successful")
-    
-    # Reset cancellation event at the start
-    global_cancellation_event.clear()
-    
-    while not global_cancellation_event.is_set() and not getattr(current_thread(), 'exit_requested', False):
-        # Show dynamic menu based on server status and available resumable tasks
-        server_running = is_server_running()
-        resumable_tasks = task_tracker.list_resumable_tasks()
-        
-        print("\nMain Menu:")
-        if server_running:
-            print("1. Stop OpenAPI Endpoints")
-        else:
-            print("1. Start OpenAPI Endpoints")
-        print("2. Scrape & Crawl")
-        print("3. Create Dataset from GitHub Repository")
-        print("4. Manage Existing Datasets")
-        
-        # Only show Resume Dataset Creation if there are resumable tasks
-        if resumable_tasks:
-            print("5. Resume Scraping Task")
-            print("6. Scheduled Tasks & Automation")
-            print("7. Launch Web UI")
-            print("8. Configuration")
-            print("9. Exit")
-            print("10. Run AI Assistant (full functionality)")
-            max_choice = 10
-        else:
-            print("5. Scheduled Tasks & Automation")
-            print("6. Launch Web UI")
-            print("7. Configuration")
-            print("8. Exit")
-            print("9. Run AI Assistant (full functionality)")
-            max_choice = 9
-        
-        choice = input(f"\nEnter your choice (1-{max_choice}): ")
-        
-        if choice == "1":
-            # Handle OpenAPI server
-            if server_running:
-                print("\n----- Stopping OpenAPI Endpoints -----")
-                if stop_server():
-                    print("OpenAPI Endpoints stopped successfully")
-                else:
-                    print("Failed to stop OpenAPI Endpoints")
-            else:
-                print("\n----- Starting OpenAPI Endpoints -----")
-                # Get OpenAPI key
-                api_key = credentials_manager.get_openapi_key()
-                
-                if not api_key:
-                    print("OpenAPI key not configured. Please set an API key.")
-                    api_key = input("Enter new OpenAPI key: ")
-                    if credentials_manager.save_openapi_key(api_key):
-                        print("OpenAPI key saved successfully")
-                    else:
-                        print("Failed to save OpenAPI key")
-                        continue
-                
-                # Get configured server port
-                server_port = credentials_manager.get_server_port()
-                
-                if start_server(api_key, port=server_port):
-                    print("OpenAPI Endpoints started successfully")
-                    print(f"Server running at: http://0.0.0.0:{server_port}")
-                    print(f"API Documentation: http://0.0.0.0:{server_port}/docs")
-                    print(f"OpenAPI Schema: http://0.0.0.0:{server_port}/openapi.json")
-                else:
-                    print("Failed to start OpenAPI Endpoints")
-        
-        elif choice == "2":
-            scrape_crawl()
-        
-        elif choice == "3":
-            github_dataset()
-        
-        elif choice == "4":
-            manage_datasets()
-                
-        # Resume Scraping Task (only available if there are resumable tasks)
-        elif choice == "5" and resumable_tasks:
-            resume_task()
-        
-        # Scheduled Tasks menu (position depends on whether Resume Dataset Creation is available)
-        elif (choice == "5" and not resumable_tasks) or (choice == "6" and resumable_tasks):
-            scheduled_tasks()
-        
-        # Web UI menu (position depends on whether Resume Dataset Creation is available)
-        elif (choice == "6" and not resumable_tasks) or (choice == "7" and resumable_tasks):
-            web_ui()
-        
-        # Configuration menu (position depends on whether Resume Dataset Creation is available)
-        elif (choice == "7" and not resumable_tasks) or (choice == "8" and resumable_tasks):
-            configuration()
-                
-        # Run AI Assistant (position depends on whether Resume Dataset Creation is available)
-        elif (choice == "9" and not resumable_tasks) or (choice == "10" and resumable_tasks):
-            ai_assistant()
-        
-        # Exit application (position depends on whether Resume Dataset Creation is available)
-        elif (choice == "8" and not resumable_tasks) or (choice == "9" and resumable_tasks):
-            # Check if the server is running before exiting
-            if is_server_running():
-                print("\nStopping OpenAPI Endpoints before exiting...")
-                stop_server()
-            print("\nExiting application. Goodbye!")
-            break
-            
-        else:
-            # Dynamic message based on max_choice
-            print(f"Invalid choice. Please enter a number between 1 and {max_choice}.")
+class MainMenuApp(App):
+    CSS_PATH = "tui_app.css"
 
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
+        yield Container(
+            Horizontal(
+                Vertical(
+                    Label("Main Menu"),
+                    Button("Start OpenAPI Endpoints", id="start_server"),
+                    Button("Stop OpenAPI Endpoints", id="stop_server"),
+                    Button("Scrape & Crawl", id="scrape_crawl"),
+                    Button("Create Dataset from GitHub Repository", id="github_dataset"),
+                    Button("Manage Existing Datasets", id="manage_datasets"),
+                    Button("Resume Scraping Task", id="resume_task"),
+                    Button("Scheduled Tasks & Automation", id="scheduled_tasks"),
+                    Button("Launch Web UI", id="web_ui"),
+                    Button("Configuration", id="configuration"),
+                    Button("Run AI Assistant", id="ai_assistant"),
+                    Button("Exit", id="exit"),
+                    id="left_panel",
+                ),
+                Vertical(
+                    Panel(Markdown("## Main Menu Options")),
+                    ListView(id="menu_list"),
+                    id="right_panel",
+                ),
+                id="main_container",
+            )
+        )
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "start_server":
+            await self.start_server()
+        elif event.button.id == "stop_server":
+            await self.stop_server()
+        elif event.button.id == "scrape_crawl":
+            scrape_crawl()
+        elif event.button.id == "github_dataset":
+            github_dataset()
+        elif event.button.id == "manage_datasets":
+            manage_datasets()
+        elif event.button.id == "resume_task":
+            resume_task()
+        elif event.button.id == "scheduled_tasks":
+            scheduled_tasks()
+        elif event.button.id == "web_ui":
+            web_ui()
+        elif event.button.id == "configuration":
+            configuration()
+        elif event.button.id == "ai_assistant":
+            ai_assistant()
+        elif event.button.id == "exit":
+            self.exit()
+
+    async def start_server(self):
+        credentials_manager = CredentialsManager()
+        api_key = credentials_manager.get_openapi_key()
+        if not api_key:
+            self.query_one(ListView).append(Label("OpenAPI key not configured. Please set an API key."))
+            return
+        server_port = credentials_manager.get_server_port()
+        if start_server(api_key, port=server_port):
+            self.query_one(ListView).append(Label(f"OpenAPI Endpoints started successfully at http://0.0.0.0:{server_port}"))
+        else:
+            self.query_one(ListView).append(Label("Failed to start OpenAPI Endpoints"))
+
+    async def stop_server(self):
+        if stop_server():
+            self.query_one(ListView).append(Label("OpenAPI Endpoints stopped successfully"))
+        else:
+            self.query_one(ListView).append(Label("Failed to stop OpenAPI Endpoints"))
+
+def main_menu():
+    app = MainMenuApp()
+    app.run()
