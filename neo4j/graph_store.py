@@ -5,13 +5,48 @@ from datetime import datetime
 import json
 from pathlib import Path
 import uuid
+import hashlib
 
-from langchain_neo4j import Neo4jGraph
+# Import core Neo4j driver
+import neo4j
+from neo4j import GraphDatabase
+
+# Import LangChain libraries directly
 from langchain_core.documents import Document
-from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_aws import ChatBedrockConverse
 
 logger = logging.getLogger(__name__)
+
+class Node:
+    """Represents a node in a graph with associated properties."""
+    
+    def __init__(self, id: Union[str, int], type: str = "Node", properties: dict = None):
+        self.id = id
+        self.type = type
+        self.properties = properties or {}
+
+class Relationship:
+    """Represents a directed relationship between two nodes in a graph."""
+    
+    def __init__(self, source: Node, target: Node, type: str, properties: dict = None):
+        self.source = source
+        self.target = target 
+        self.type = type
+        self.properties = properties or {}
+
+class GraphDocument:
+    """Represents a graph document consisting of nodes and relationships."""
+    
+    def __init__(self, nodes: List[Node], relationships: List[Relationship], source: Optional[Document] = None):
+        self.nodes = nodes
+        self.relationships = relationships
+        self.source = source
+
+
+def _remove_backticks(text: str) -> str:
+    """Remove backticks from text."""
+    return text.replace("`", "")
+
 
 class GraphStore:
     """Neo4j-based knowledge graph store with support for multiple graphs."""
@@ -41,43 +76,65 @@ class GraphStore:
             except ImportError:
                 logger.warning("CredentialsManager not available")
         
-        # Set graph name
-        self.graph_name = graph_name or "default"
+        # Set graph name (database)
+        self.graph_name = graph_name or "neo4j"
         
         # Initialize Neo4j connection
-        self.graph = None
+        self._driver = None
         if all([self.uri, self.username, self.password]):
             try:
-                self.graph = Neo4jGraph(
-                    url=self.uri,
-                    username=self.username,
-                    password=self.password,
-                    database=self.graph_name if self.graph_name != "default" else None,
-                    refresh_schema=False
+                self._driver = GraphDatabase.driver(
+                    self.uri, 
+                    auth=(self.username, self.password)
                 )
                 logger.info(f"Connected to Neo4j graph: {self.graph_name}")
             except Exception as e:
                 logger.error(f"Failed to connect to Neo4j: {e}")
-                self.graph = None
+                self._driver = None
         else:
             logger.warning("Neo4j credentials not configured")
-    
+
     def test_connection(self) -> bool:
         """Test the connection to the Neo4j database."""
-        if not self.graph:
+        if not self._driver:
             return False
         
         try:
             # Execute a simple query to test the connection
-            result = self.graph.query("RETURN 1 as test")
+            result = self.query("RETURN 1 as test")
             return len(result) > 0 and result[0].get("test") == 1
         except Exception as e:
             logger.error(f"Failed to connect to Neo4j: {e}")
             return False
     
+    def query(self, query: str, params: dict = None) -> List[Dict[str, Any]]:
+        """Query Neo4j database.
+
+        Args:
+            query (str): The Cypher query to execute.
+            params (dict): The parameters to pass to the query.
+
+        Returns:
+            List[Dict[str, Any]]: The list of dictionaries containing the query results.
+        """
+        if not self._driver:
+            logger.error("Neo4j connection not available")
+            return []
+        
+        if params is None:
+            params = {}
+        
+        try:
+            with self._driver.session(database=self.graph_name) as session:
+                result = session.run(query, params)
+                return [record.data() for record in result]
+        except Exception as e:
+            logger.error(f"Failed to execute query: {e}")
+            return []
+
     def initialize_schema(self) -> bool:
         """Initialize the graph schema with necessary constraints and indexes."""
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return False
         
@@ -112,7 +169,7 @@ class GraphStore:
             
             # Execute all schema setup queries
             for query in schema_queries:
-                self.graph.query(query)
+                self.query(query)
             
             logger.info(f"Knowledge graph schema initialized for {self.graph_name}")
             return True
@@ -123,7 +180,7 @@ class GraphStore:
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about the knowledge graph."""
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return {}
         
@@ -148,7 +205,7 @@ class GraphStore:
                    concept_count
             """
             
-            result = self.graph.query(stats_query)
+            result = self.query(stats_query)
             
             if not result:
                 return {}
@@ -169,7 +226,7 @@ class GraphStore:
     
     def list_graphs(self) -> List[Dict[str, Any]]:
         """List all available knowledge graphs."""
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return []
         
@@ -184,7 +241,7 @@ class GraphStore:
             ORDER BY g.name
             """
             
-            result = self.graph.query(graphs_query)
+            result = self.query(graphs_query)
             
             # Format timestamps
             for graph in result:
@@ -210,7 +267,7 @@ class GraphStore:
         Returns:
             bool: Whether creation was successful
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return False
         
@@ -224,7 +281,7 @@ class GraphStore:
             RETURN g.name as name
             """
             
-            result = self.graph.query(create_query, {"description": description or f"Knowledge graph: {name}"})
+            result = self.query(create_query, {"description": description or f"Knowledge graph: {name}"})
             
             if result and result[0].get("name") == name:
                 logger.info(f"Created knowledge graph: {name}")
@@ -247,7 +304,7 @@ class GraphStore:
         Returns:
             bool: Whether deletion was successful
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return False
         
@@ -259,7 +316,7 @@ class GraphStore:
             DETACH DELETE n
             """
             
-            self.graph.query(delete_query)
+            self.query(delete_query)
             logger.info(f"Deleted knowledge graph: {name}")
             return True
                 
@@ -277,7 +334,7 @@ class GraphStore:
         Returns:
             str: Document ID if successful, None otherwise
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return None
         
@@ -316,7 +373,7 @@ class GraphStore:
                 "fetched_at": document_data.get("fetched_at", datetime.now().isoformat())
             }
             
-            result = self.graph.query(create_query, params)
+            result = self.query(create_query, params)
             
             if result and result[0].get("id") == doc_id:
                 logger.info(f"Added document to graph {self.graph_name}: {doc_id}")
@@ -340,26 +397,12 @@ class GraphStore:
         Returns:
             bool: Whether extraction was successful
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return False
         
         try:
-            # Get OpenAI API key
-            api_key = llm_api_key or os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                try:
-                    from config.credentials_manager import CredentialsManager
-                    credentials_manager = CredentialsManager()
-                    api_key = credentials_manager.get_openai_key()
-                except (ImportError, AttributeError):
-                    pass
-            
-            if not api_key:
-                logger.error("OpenAI API key not available")
-                return False
-            
-            # Initialize LLM
+            # Initialize LLM with Bedrock
             llm = ChatBedrockConverse(
                 model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
                 region_name="us-east-1",
@@ -413,63 +456,163 @@ class GraphStore:
                 ("Document", "DESCRIBES", "Event"),
                 ("Document", "REFERENCES", "Document")
             ]
-            
-            # Create transformer
-            llm_transformer = LLMGraphTransformer(
-                llm=llm,
-                allowed_nodes=allowed_nodes,
-                allowed_relationships=allowed_relationships,
-                node_properties=True
-            )
-            
-            # Convert documents to LangChain format
-            langchain_docs = []
+
+            # Process each document to extract entities
             for doc in documents:
-                langchain_docs.append(Document(
-                    page_content=doc.get("content", ""),
-                    metadata={
-                        "id": doc.get("id", str(uuid.uuid4())),
-                        "url": doc.get("url", ""),
-                        "title": doc.get("title", "Untitled Document"),
-                        "description": doc.get("description", ""),
-                        "fetched_at": doc.get("fetched_at", datetime.now().isoformat())
-                    }
-                ))
-            
-            # Extract graph documents
-            graph_documents = llm_transformer.convert_to_graph_documents(langchain_docs)
-            
-            # Add to graph
-            for graph_doc in graph_documents:
-                self.graph.add_graph_documents(
-                    [graph_doc], 
-                    baseEntityLabel=True, 
-                    include_source=True
-                )
+                doc_id = doc.get("id", str(uuid.uuid4()))
+                doc_content = doc.get("content", "")
+                doc_title = doc.get("title", "Untitled Document")
                 
-                # Add graph name to all nodes
-                self._add_graph_name_to_nodes(graph_doc)
+                # Skip empty documents
+                if not doc_content:
+                    continue
+
+                # Extract entities and relationships using LLM
+                prompt = f"""
+                Extract entities and relationships from the following document:
+                
+                Title: {doc_title}
+                
+                Content:
+                {doc_content[:4000]}  # Limit content size
+                
+                Return ONLY a JSON structure with no explanations:
+                
+                {{
+                    "entities": [
+                        {{
+                            "id": "unique-id-1",
+                            "type": "Person|Organization|Concept|...",
+                            "name": "Entity name",
+                            "properties": {{
+                                "property1": "value1",
+                                "property2": "value2"
+                            }}
+                        }},
+                        ...
+                    ],
+                    "relationships": [
+                        {{
+                            "source_id": "unique-id-1",
+                            "target_id": "unique-id-2",
+                            "type": "RELATIONSHIP_TYPE",
+                            "properties": {{
+                                "property1": "value1",
+                                "property2": "value2"
+                            }}
+                        }},
+                        ...
+                    ]
+                }}
+                
+                Entity types must be one of: {allowed_nodes}
+                """
+                
+                try:
+                    # Call LLM to extract entities
+                    response = llm.invoke(prompt)
+                    extraction_text = response.content
+                    
+                    # Extract JSON part from the response
+                    start_idx = extraction_text.find('{')
+                    end_idx = extraction_text.rfind('}')
+                    if start_idx != -1 and end_idx != -1:
+                        json_str = extraction_text[start_idx:end_idx+1]
+                        extraction = json.loads(json_str)
+                    else:
+                        logger.error(f"Could not extract JSON from LLM response for document {doc_id}")
+                        continue
+                    
+                    # Create document node
+                    self.add_document(doc)
+                    
+                    # Create entity nodes
+                    for entity in extraction.get("entities", []):
+                        entity_id = entity.get("id", str(uuid.uuid4()))
+                        entity_type = entity.get("type")
+                        
+                        # Skip entities with invalid types
+                        if entity_type not in allowed_nodes:
+                            continue
+                        
+                        # Create entity node
+                        create_entity_query = f"""
+                        MERGE (e:{entity_type} {{id: $id}})
+                        ON CREATE SET e.created_at = datetime(),
+                                    e.graph_name = '{self.graph_name}',
+                                    e.name = $name
+                        ON MATCH SET e.updated_at = datetime(),
+                                   e.name = $name
+                        
+                        WITH e
+                        
+                        MATCH (d:Document {{id: $doc_id}})
+                        MERGE (d)-[:MENTIONS]->(e)
+                        
+                        RETURN e.id as id
+                        """
+                        
+                        entity_params = {
+                            "id": entity_id,
+                            "name": entity.get("name", f"Unnamed {entity_type}"),
+                            "doc_id": doc_id
+                        }
+                        
+                        # Add properties
+                        for prop_key, prop_value in entity.get("properties", {}).items():
+                            entity_params[prop_key] = prop_value
+                            create_entity_query = create_entity_query.replace(
+                                "ON CREATE SET", f"ON CREATE SET e.{prop_key} = ${prop_key},")
+                            create_entity_query = create_entity_query.replace(
+                                "ON MATCH SET", f"ON MATCH SET e.{prop_key} = ${prop_key},")
+                        
+                        # Create entity
+                        self.query(create_entity_query, entity_params)
+                    
+                    # Create relationships
+                    for rel in extraction.get("relationships", []):
+                        source_id = rel.get("source_id")
+                        target_id = rel.get("target_id")
+                        rel_type = rel.get("type", "RELATED_TO").upper().replace(" ", "_")
+                        
+                        # Skip relationships without source or target
+                        if not source_id or not target_id:
+                            continue
+                        
+                        # Create relationship
+                        create_rel_query = f"""
+                        MATCH (source {{id: $source_id}})
+                        MATCH (target {{id: $target_id}})
+                        MERGE (source)-[r:{rel_type}]->(target)
+                        
+                        ON CREATE SET r.created_at = datetime()
+                        
+                        RETURN type(r) as type
+                        """
+                        
+                        rel_params = {
+                            "source_id": source_id,
+                            "target_id": target_id
+                        }
+                        
+                        # Add properties
+                        for prop_key, prop_value in rel.get("properties", {}).items():
+                            rel_params[prop_key] = prop_value
+                            create_rel_query = create_rel_query.replace(
+                                "ON CREATE SET", f"ON CREATE SET r.{prop_key} = ${prop_key},")
+                        
+                        # Create relationship
+                        self.query(create_rel_query, rel_params)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to extract entities from document {doc_id}: {e}")
+                    continue
             
             return True
                 
         except Exception as e:
             logger.error(f"Failed to extract entities: {e}")
             return False
-    
-    def _add_graph_name_to_nodes(self, graph_doc):
-        """Add graph name to all nodes to support multiple graphs."""
-        try:
-            # Add graph name to all nodes
-            query = f"""
-            MATCH (n)
-            WHERE NOT n:KnowledgeGraph AND (n.graph_name IS NULL OR n.graph_name = '')
-            SET n.graph_name = '{self.graph_name}'
-            """
-            
-            self.graph.query(query)
-            
-        except Exception as e:
-            logger.error(f"Failed to add graph name to nodes: {e}")
     
     def search_documents(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
@@ -482,7 +625,7 @@ class GraphStore:
         Returns:
             List of matching documents
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return []
         
@@ -502,7 +645,7 @@ class GraphStore:
             LIMIT $limit
             """
             
-            result = self.graph.query(search_query, {"query": query, "limit": limit})
+            result = self.query(search_query, {"query": query, "limit": limit})
             
             # Format timestamps
             for doc in result:
@@ -527,7 +670,7 @@ class GraphStore:
         Returns:
             Document data if found, None otherwise
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return None
         
@@ -545,7 +688,7 @@ class GraphStore:
                    d.updated_at as updated_at
             """
             
-            result = self.graph.query(query, {"id": doc_id})
+            result = self.query(query, {"id": doc_id})
             
             if not result:
                 return None
@@ -573,7 +716,7 @@ class GraphStore:
         Returns:
             List of entities related to the document
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return []
         
@@ -597,7 +740,7 @@ class GraphStore:
                    properties(e) as properties
             """
             
-            result = self.graph.query(query, {"id": doc_id})
+            result = self.query(query, {"id": doc_id})
             
             # Clean up properties
             for entity in result:
@@ -635,7 +778,7 @@ class GraphStore:
         Returns:
             Dict with nodes and relationships
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return {"nodes": [], "relationships": []}
         
@@ -654,7 +797,7 @@ class GraphStore:
                    rel_types
             """
             
-            result = self.graph.query(query, {"concept_name": concept_name})
+            result = self.query(query, {"concept_name": concept_name})
             
             # Transform results into nodes and relationships
             nodes = {}
@@ -707,7 +850,7 @@ class GraphStore:
         Returns:
             Query results
         """
-        if not self.graph:
+        if not self._driver:
             logger.error("Neo4j connection not available")
             return []
         
@@ -721,9 +864,24 @@ class GraphStore:
             # Replace graph_name placeholder with the actual parameter
             modified_query = query.replace("{graph_name}", "{graph_name}")
             
-            result = self.graph.query(modified_query, params)
+            result = self.query(modified_query, params)
             return result
             
         except Exception as e:
             logger.error(f"Failed to execute custom query: {e}")
             return []
+    
+    def close(self) -> None:
+        """Close the Neo4j driver connection."""
+        if self._driver:
+            self._driver.close()
+            self._driver = None
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+    
+    def __del__(self):
+        self.close()
