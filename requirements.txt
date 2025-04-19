@@ -10,6 +10,7 @@ langchain_experimental==0.3.4
 langchain_neo4j==0.4.0
 langgraph==0.3.31
 neo4j==5.28.1
+neo4j-graphrag==0.1.10
 pip==24.0
 playwright==1.51.0
 psutil==7.0.0
