@@ -234,7 +234,7 @@ class LLMClient:
                     # Get HuggingFace token
                     hf_username, hf_token = creds_manager.get_huggingface_credentials()
                     if not hf_token:
-                        return "Error: Hugging Face token not configured. Please set up your Hugging Face credentials."
+                        return "Error: HuggingFace token not configured. Please set up your HuggingFace credentials."
                     
                     # Initialize the dataset creator
                     dataset_creator = DatasetCreator(huggingface_token=hf_token)
@@ -338,7 +338,7 @@ class LLMClient:
             return None
             
         try:
-            from knowledge_graph.graph_store import GraphStore
+            from neo4j.graph_store import GraphStore
             
             @agents.function_tool
             async def manage_knowledge_graph(action: str, graph_name: str, 
@@ -451,7 +451,7 @@ class LLMClient:
             
             # Check if message indicates need for crawling or dataset tools
             crawler_terms = ["crawl", "scrape", "extract", "website", "webpage", "web page"]
-            dataset_terms = ["dataset", "create dataset", "hugging face", "huggingface"]
+            dataset_terms = ["dataset", "create dataset", "HuggingFace", "huggingface"]
             knowledge_graph_terms = ["knowledge graph", "graph", "neo4j"]
             
             # Make user_message case-insensitive

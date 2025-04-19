@@ -10,17 +10,16 @@ from config.credentials_manager import CredentialsManager
 from huggingface.dataset_manager import DatasetManager
 from utils.task_tracker import TaskTracker
 from utils.task_scheduler import TaskScheduler
-from api.server import start_server, stop_server, is_server_running, get_server_info, start_server_with_ui
+from api.server import start_server, stop_server, is_server_running, get_server_info
 from threading import Event, current_thread
 
-from cli.scrape_crawl import scrape_crawl
-from cli.github_dataset import github_dataset
-from cli.manage_datasets import manage_datasets
-from cli.resume_task import resume_task
-from cli.scheduled_tasks import scheduled_tasks
-from cli.web_ui import web_ui
-from cli.configuration import configuration
-from cli.ai_assistant import ai_assistant
+from ui.scrape_crawl import scrape_crawl
+from ui.github_dataset import github_dataset
+from ui.manage_datasets import manage_datasets
+from ui.resume_task import resume_task
+from ui.scheduled_tasks import scheduled_tasks
+from ui.configuration import configuration
+from ui.ai_assistant import ai_assistant
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -61,7 +60,6 @@ class MainMenuApp(App):
                     Button("Manage Existing Datasets", id="manage_datasets"),
                     Button("Resume Scraping Task", id="resume_task"),
                     Button("Scheduled Tasks & Automation", id="scheduled_tasks"),
-                    Button("Launch Web UI", id="web_ui"),
                     Button("Configuration", id="configuration"),
                     Button("Run AI Assistant", id="ai_assistant"),
                     Button("Exit", id="exit"),
@@ -91,8 +89,6 @@ class MainMenuApp(App):
             resume_task()
         elif event.button.id == "scheduled_tasks":
             scheduled_tasks()
-        elif event.button.id == "web_ui":
-            web_ui()
         elif event.button.id == "configuration":
             configuration()
         elif event.button.id == "ai_assistant":

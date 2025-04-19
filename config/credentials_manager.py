@@ -128,7 +128,7 @@ class CredentialsManager:
             logger.error(f"Error extracting usernames from env: {e}")
 
     def save_huggingface_credentials(self, username, token):
-        """Save Hugging Face credentials."""
+        """Save HuggingFace credentials."""
         try:
             config = self._load_config()
             config["huggingface_username"] = username
@@ -137,24 +137,24 @@ class CredentialsManager:
             if self.has_keyring:
                 try:
                     self.keyring.set_password(self.SERVICE_NAME, self.HUGGINGFACE_KEY, token)
-                    logger.info("Saved Hugging Face token to keyring")
+                    logger.info("Saved HuggingFace token to keyring")
                 except Exception as e:
                     logger.warning(f"Keyring save failed, storing in config file: {e}")
                     config["huggingface_token"] = token
             else:
                 # Save in config file if keyring not available 
                 config["huggingface_token"] = token
-                logger.info("Saved Hugging Face token to config file")
+                logger.info("Saved HuggingFace token to config file")
                     
             self._save_config(config)
-            logger.info(f"Saved Hugging Face credentials for user {username}")
+            logger.info(f"Saved HuggingFace credentials for user {username}")
             return True
         except Exception as e:
-            logger.error(f"Failed to save Hugging Face credentials: {e}")
+            logger.error(f"Failed to save HuggingFace credentials: {e}")
             return False
 
     def get_huggingface_credentials(self):
-        """Get Hugging Face credentials with environment variable fallback."""
+        """Get HuggingFace credentials with environment variable fallback."""
         config = self._load_config()
         username = config.get("huggingface_username", "")
         token = None

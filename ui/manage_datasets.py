@@ -113,13 +113,13 @@ class ManageDatasetsApp(App):
         _, self.huggingface_token = self.credentials_manager.get_huggingface_credentials()
 
         if not self.huggingface_token:
-            self.query_one(ListView).append(Label("\nError: Hugging Face token not found. Please set your credentials first."))
+            self.query_one(ListView).append(Label("\nError: HuggingFace token not found. Please set your credentials first."))
             return
 
         self.dataset_manager = DatasetManager(huggingface_token=self.huggingface_token,
                                               credentials_manager=self.credentials_manager)
 
-        self.query_one(ListView).append(Label("\nFetching your datasets from Hugging Face..."))
+        self.query_one(ListView).append(Label("\nFetching your datasets from HuggingFace..."))
         self.datasets = self.dataset_manager.list_datasets()
 
         if not self.datasets:

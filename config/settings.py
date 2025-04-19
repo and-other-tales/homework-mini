@@ -118,7 +118,7 @@ TEXT_FILE_EXTENSIONS = [
     ".ipynb",
 ]
 
-# Hugging Face settings
+# HuggingFace settings
 HF_DATASET_TEMPLATE = {
     "metadata": {
         "creator": "github_hf_dataset_creator",

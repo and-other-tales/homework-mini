@@ -71,7 +71,7 @@ class ResumeTaskApp(App):
             if task_type == "scrape":
                 hf_username, huggingface_token = self.credentials_manager.get_huggingface_credentials()
                 if not huggingface_token:
-                    self.query_one(ListView).append(Label("\nError: Hugging Face token not found. Please set your credentials first."))
+                    self.query_one(ListView).append(Label("\nError: HuggingFace token not found. Please set your credentials first."))
                     return
 
                 web_crawler = WebCrawler()

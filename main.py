@@ -13,8 +13,8 @@ from utils.task_tracker import TaskTracker
 from utils.task_scheduler import TaskScheduler
 from api.server import start_server, stop_server, is_server_running, get_server_info, start_server_with_ui
 from threading import Event, current_thread
-from cli.main_menu import main_menu
-from cli.tui_app import TUIApp
+from ui.main_menu import main_menu
+from ui.tui_app import TUIApp
 
 # Global cancellation event for stopping ongoing tasks
 global_cancellation_event = Event()
@@ -58,10 +58,10 @@ def run_update(args):
         # Create task to track progress
         task_id = args.task_id if args.task_id else None
         
-        # Check for Hugging Face credentials
+        # Check for HuggingFace credentials
         hf_username, huggingface_token = credentials_manager.get_huggingface_credentials()
         if not huggingface_token:
-            logger.error("Hugging Face token not found. Please set credentials first.")
+            logger.error("HuggingFace token not found. Please set credentials first.")
             return 1
             
         # Initialize crawler and dataset creator

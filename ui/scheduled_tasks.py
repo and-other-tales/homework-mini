@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 class ScheduledTasksApp(App):
     CSS_PATH = "tui_app.css"
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scheduler = TaskScheduler()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -57,12 +61,11 @@ class ScheduledTasksApp(App):
             self.exit()
 
     async def list_scheduled_tasks(self):
-        scheduler = TaskScheduler()
-        if not scheduler.is_crontab_available():
+        if not self.scheduler.is_crontab_available():
             self.query_one(ListView).append(Label("Crontab is not available on this system. Scheduled tasks cannot be managed."))
             return
 
-        tasks = scheduler.list_scheduled_tasks()
+        tasks = self.scheduler.list_scheduled_tasks()
         if not tasks:
             self.query_one(ListView).append(Label("No scheduled tasks found."))
         else:
@@ -86,12 +89,12 @@ class ScheduledTasksApp(App):
             month = input("Enter month (1-12 or *): ")
             day_of_week = input("Enter day of week (0-6 or *): ")
 
-            task_id = scheduler.create_scheduled_task(
+            task_id = self.scheduler.create_scheduled_task(
                 task_type, source_type, source_name, dataset_name, schedule_type,
                 minute=minute, hour=hour, day=day, month=month, day_of_week=day_of_week
             )
         else:
-            task_id = scheduler.create_scheduled_task(
+            task_id = self.scheduler.create_scheduled_task(
                 task_type, source_type, source_name, dataset_name, schedule_type
             )
 
@@ -111,12 +114,12 @@ class ScheduledTasksApp(App):
             month = input("Enter month (1-12 or *): ")
             day_of_week = input("Enter day of week (0-6 or *): ")
 
-            success = scheduler.update_scheduled_task(
+            success = self.scheduler.update_scheduled_task(
                 task_id, schedule_type,
                 minute=minute, hour=hour, day=day, month=month, day_of_week=day_of_week
             )
         else:
-            success = scheduler.update_scheduled_task(task_id, schedule_type)
+            success = self.scheduler.update_scheduled_task(task_id, schedule_type)
 
         if success:
             self.query_one(ListView).append(Label(f"Scheduled task {task_id} updated successfully."))
@@ -125,7 +128,7 @@ class ScheduledTasksApp(App):
 
     async def delete_scheduled_task(self):
         task_id = input("Enter task ID to delete: ")
-        success = scheduler.delete_scheduled_task(task_id)
+        success = self.scheduler.delete_scheduled_task(task_id)
 
         if success:
             self.query_one(ListView).append(Label(f"Scheduled task {task_id} deleted successfully."))
@@ -134,7 +137,7 @@ class ScheduledTasksApp(App):
 
     async def run_scheduled_task(self):
         task_id = input("Enter task ID to run now: ")
-        success = scheduler.run_task_now(task_id)
+        success = self.scheduler.run_task_now(task_id)
 
         if success:
             self.query_one(ListView).append(Label(f"Scheduled task {task_id} executed successfully."))

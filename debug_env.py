@@ -43,7 +43,7 @@ def check_environment_variables():
     relevant_vars = {
         "OPENAI_API_KEY": "OpenAI API key",
         "GITHUB_TOKEN": "GitHub token",
-        "HUGGINGFACE_TOKEN": "Hugging Face token",
+        "HUGGINGFACE_TOKEN": "HuggingFace token",
         "NEO4J_URI": "Neo4j URI",
         "NEO4J_USER": "Neo4j username",
         "NEO4J_PASSWORD": "Neo4j password"

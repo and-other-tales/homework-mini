@@ -144,7 +144,7 @@ class GenerateDatasetRequest(BaseModel):
     )
     dataset_name: str = Field(
         ...,
-        description="Name for the generated dataset on Hugging Face"
+        description="Name for the generated dataset on HuggingFace"
     )
     description: str = Field(
         ...,
@@ -163,7 +163,7 @@ class WebCrawlRequest(BaseModel):
     )
     dataset_name: str = Field(
         ..., 
-        description="Name for the generated dataset on Hugging Face"
+        description="Name for the generated dataset on HuggingFace"
     )
     description: str = Field(
         ..., 
@@ -186,7 +186,7 @@ class ModifyDatasetRequest(BaseModel):
     )
     dataset_id: str = Field(
         ..., 
-        description="Identifier for the dataset on Hugging Face"
+        description="Identifier for the dataset on HuggingFace"
     )
 
 
@@ -342,7 +342,7 @@ async def health_check():
     
     # Check Neo4j connection if available
     try:
-        from knowledge_graph.graph_store import GraphStore
+        from neo4j.graph_store import GraphStore
         graph_store = GraphStore()
         if graph_store.test_connection():
             health_status["components"]["neo4j"]["status"] = "up"
@@ -356,7 +356,7 @@ async def health_check():
         }
         health_status["status"] = "degraded"
     
-    # Check Hugging Face API access
+    # Check HuggingFace API access
     try:
         from config.credentials_manager import CredentialsManager
         credentials_manager = CredentialsManager()
@@ -476,10 +476,10 @@ async def generate_dataset(
     request: GenerateDatasetRequest, api_key: str = Depends(verify_api_key)
 ):
     """
-    Create and publish a new dataset on Hugging Face from  repository or organization content.
+    Create and publish a new dataset on HuggingFace from  repository or organization content.
     
     This endpoint fetches code files from the specified  source, processes them,
-    and publishes a structured dataset to Hugging Face with appropriate metadata.
+    and publishes a structured dataset to HuggingFace with appropriate metadata.
     """
     try:
         # Import necessary components
@@ -502,7 +502,7 @@ async def generate_dataset(
         if not huggingface_token:
             return ApiResponse(
                 success=False,
-                message="Hugging Face token not found. Please configure credentials first.",
+                message="HuggingFace token not found. Please configure credentials first.",
                 data=None,
             )
 
@@ -605,7 +605,7 @@ async def modify_dataset(
     Perform operations on an existing dataset: view details, download metadata, or delete.
     
     This endpoint allows retrieving dataset information, downloading dataset metadata files,
-    or completely removing a dataset from Hugging Face based on the specified action.
+    or completely removing a dataset from HuggingFace based on the specified action.
     """
     try:
         # Import necessary components
@@ -618,7 +618,7 @@ async def modify_dataset(
         if not huggingface_token:
             return ApiResponse(
                 success=False,
-                message="Hugging Face token not found. Please configure credentials first.",
+                message="HuggingFace token not found. Please configure credentials first.",
                 data=None,
             )
 
@@ -758,7 +758,7 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
             
         @app.get("/huggingface", response_class=HTMLResponse)
         async def get_huggingface(request: Request):
-            """Render the Hugging Face page"""
+            """Render the HuggingFace page"""
             # Return a simple response redirecting to frontend
             return HTMLResponse(content="<html><body><h1>HuggingFace API is Running</h1><p>Please use the frontend HuggingFace page at <a href='http://localhost:3000/huggingface'>http://localhost:3000/huggingface</a></p></body></html>")
             
@@ -1044,12 +1044,12 @@ async def crawl_website(
         
         credentials_manager = CredentialsManager()
         
-        # Get Hugging Face credentials
+        # Get HuggingFace credentials
         hf_username, huggingface_token = credentials_manager.get_huggingface_credentials()
         if not huggingface_token:
             return ApiResponse(
                 success=False,
-                message="Hugging Face token not found. Please configure credentials first.",
+                message="HuggingFace token not found. Please configure credentials first.",
                 data=None,
             )
         
@@ -1262,7 +1262,7 @@ async def manage_knowledge_graph(
     """
     try:
         # Import knowledge graph store
-        from knowledge_graph.graph_store import GraphStore
+        from neo4j.graph_store import GraphStore
         
         action = request.action.lower()
         

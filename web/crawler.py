@@ -955,7 +955,7 @@ class WebCrawler:
         """
         try:
             # Import here to avoid dependency issues
-            from knowledge_graph.graph_store import GraphStore
+            from neo4j.graph_store import GraphStore
             
             # Initialize graph store
             graph_store = GraphStore()

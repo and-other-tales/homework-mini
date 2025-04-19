@@ -1,7 +1,8 @@
 import logging
 from config.credentials_manager import CredentialsManager
-from huggingface.dataset_manager import DatasetManager
-from knowledge_graph.graph_store import GraphStore
+from github.client import GitHubClient
+from huggingface.dataset_creator import DatasetCreator
+from neo4j.graph_store import GraphStore
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
@@ -17,7 +18,7 @@ from textual.widgets import (
 
 logger = logging.getLogger(__name__)
 
-class ScrapeCrawlApp(App):
+class GitHubDatasetApp(App):
     CSS_PATH = "tui_app.css"
 
     def compose(self) -> ComposeResult:
@@ -26,13 +27,13 @@ class ScrapeCrawlApp(App):
         yield Container(
             Horizontal(
                 Vertical(
-                    Label("Scrape & Crawl"),
-                    TextInput(placeholder="Enter the URL to scrape..."),
+                    Label("GitHub Dataset Creation"),
+                    TextInput(placeholder="Enter GitHub repository URL..."),
                     Button("Submit", id="submit_button"),
                     id="left_panel",
                 ),
                 Vertical(
-                    Panel(Markdown("## Scrape & Crawl Status")),
+                    Panel(Markdown("## Dataset Creation Status")),
                     ListView(id="status_list"),
                     id="right_panel",
                 ),
@@ -42,17 +43,21 @@ class ScrapeCrawlApp(App):
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "submit_button":
-            url = self.query_one(TextInput).value
-            await self.scrape_crawl(url)
+            repo_url = self.query_one(TextInput).value
+            await self.create_github_dataset(repo_url)
 
-    async def scrape_crawl(self, url: str) -> None:
-        self.query_one(ListView).append(Label(f"Starting scrape of: {url}"))
+    async def create_github_dataset(self, repo_url: str) -> None:
+        if not repo_url.startswith("https://github.com/"):
+            self.query_one(ListView).append(Label("Invalid GitHub repository URL. Must start with 'https://github.com/'"))
+            return
+
+        self.query_one(ListView).append(Label(f"Fetching GitHub repository: {repo_url}"))
 
         try:
             credentials_manager = CredentialsManager()
-            hf_username, huggingface_token = credentials_manager.get_huggingface_credentials()
+            _, huggingface_token = credentials_manager.get_huggingface_credentials()
             if not huggingface_token:
-                self.query_one(ListView).append(Label("Error: Hugging Face token not found. Please set your credentials first."))
+                self.query_one(ListView).append(Label("Error: HuggingFace token not found. Please set your credentials first."))
                 return
 
             dataset_creator = DatasetCreator(huggingface_token=huggingface_token)
@@ -64,30 +69,37 @@ class ScrapeCrawlApp(App):
                         status += f" - {message}"
                     self.query_one(ListView).append(Label(status))
 
+            content_fetcher = ContentFetcher(github_token=None)
+            content_files = content_fetcher.fetch_single_repository(repo_url, progress_callback=progress_callback)
+
+            if not content_files:
+                self.query_one(ListView).append(Label("No content found in repository or error occurred during fetch."))
+                return
+
             dataset_name = "example_dataset"
             description = "Example dataset description"
-            result = dataset_creator.create_dataset_from_url(
-                url=url,
+            result = dataset_creator.create_and_push_dataset(
+                file_data_list=content_files,
                 dataset_name=dataset_name,
                 description=description,
-                recursive=True,
-                progress_callback=progress_callback,
+                source_info=repo_url,
+                progress_callback=lambda p: progress_callback(p, "Creating and uploading dataset"),
                 update_existing=False
             )
 
-            if result.get("success"):
+            if result[0]:
                 self.query_one(ListView).append(Label(f"Dataset '{dataset_name}' created successfully!"))
             else:
                 self.query_one(ListView).append(Label("Failed to create dataset."))
 
         except Exception as e:
-            self.query_one(ListView).append(Label(f"Error creating dataset: {e}"))
-            logging.error(f"Error in scrape and crawl: {e}")
+            self.query_one(ListView).append(Label(f"Error creating dataset from GitHub repository: {e}"))
+            logging.error(f"Error in GitHub repository workflow: {e}")
 
-def scrape_crawl():
-    app = ScrapeCrawlApp()
+def github_dataset():
+    app = GitHubDatasetApp()
     app.run()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    scrape_crawl()
+    github_dataset()

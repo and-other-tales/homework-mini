@@ -9,7 +9,7 @@ from datetime import datetime
 
 from config.credentials_manager import CredentialsManager
 from utils.llm_client import LLMClient
-from knowledge_graph.graph_store import GraphStore
+from neo4j.graph_store import GraphStore
 from github.client import GitHubClient
 from utils.task_tracker import TaskTracker
 

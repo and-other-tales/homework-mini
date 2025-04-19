@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class DatasetManager:
-    """Manage existing datasets on Hugging Face Hub."""
+    """Manage existing datasets on HuggingFace Hub."""
 
     def __init__(self, huggingface_token=None, credentials_manager=None):
         self.credentials_manager = credentials_manager
@@ -31,7 +31,7 @@ class DatasetManager:
                 # List datasets for the authenticated user
                 if not self.token:
                     logger.error(
-                        "No Hugging Face token provided. Cannot list datasets."
+                        "No HuggingFace token provided. Cannot list datasets."
                     )
                     return []
                 whoami = self.api.whoami(self.token)
@@ -56,7 +56,7 @@ class DatasetManager:
             return None
 
     def delete_dataset(self, dataset_name):
-        """Delete a dataset from Hugging Face Hub.
+        """Delete a dataset from HuggingFace Hub.
         
         Args:
             dataset_name (str): The name of the dataset to delete in format 'username/dataset_name'
@@ -65,7 +65,7 @@ class DatasetManager:
             bool: Whether the deletion was successful
         """
         if not self.token:
-            logger.error("No Hugging Face token provided. Cannot delete dataset.")
+            logger.error("No HuggingFace token provided. Cannot delete dataset.")
             return False
 
         try:
@@ -168,7 +168,7 @@ class DatasetManager:
             bool: Whether the card was successfully updated
         """
         if not self.token:
-            logger.error("No Hugging Face token provided. Cannot update dataset card.")
+            logger.error("No HuggingFace token provided. Cannot update dataset card.")
             return False
             
         try:

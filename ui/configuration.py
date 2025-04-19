@@ -1,7 +1,7 @@
 import logging
 from config.credentials_manager import CredentialsManager
 from huggingface.dataset_manager import DatasetManager
-from knowledge_graph.graph_store import GraphStore
+from neo4j.graph_store import GraphStore
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
@@ -64,11 +64,11 @@ class ConfigurationApp(App):
         # Initialize credentials manager
         credentials_manager = CredentialsManager()
 
-        # Step 1: Hugging Face credentials
-        hf_username = input("Enter your Hugging Face username: ")
-        hf_token = input("Enter your Hugging Face token: ")
+        # Step 1: HuggingFace credentials
+        hf_username = input("Enter your HuggingFace username: ")
+        hf_token = input("Enter your HuggingFace token: ")
         credentials_manager.save_huggingface_credentials(hf_username, hf_token)
-        self.query_one(ListView).append(Label("Hugging Face credentials saved."))
+        self.query_one(ListView).append(Label("HuggingFace credentials saved."))
 
         # Step 2: OpenAI API key
         openai_key = input("Enter your OpenAI API key: ")
@@ -95,10 +95,10 @@ class ConfigurationApp(App):
         # Initialize credentials manager
         credentials_manager = CredentialsManager()
 
-        # Hugging Face credentials
+        # HuggingFace credentials
         hf_username, hf_token = credentials_manager.get_huggingface_credentials()
-        self.query_one(ListView).append(Label(f"Hugging Face Username: {hf_username}"))
-        self.query_one(ListView).append(Label(f"Hugging Face Token: {'*' * len(hf_token) if hf_token else 'Not Set'}"))
+        self.query_one(ListView).append(Label(f"HuggingFace Username: {hf_username}"))
+        self.query_one(ListView).append(Label(f"HuggingFace Token: {'*' * len(hf_token) if hf_token else 'Not Set'}"))
 
         # OpenAI API key
         openai_key = credentials_manager.get_openai_key()

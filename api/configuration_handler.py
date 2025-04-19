@@ -122,63 +122,68 @@ class ConfigurationHandler:
             }
         except Exception as e:
             logger.error(f"Error updating configuration: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
     
-    def get_configuration_status(self):iguration_status(self):
+    def get_configuration_status(self):
         """Get current configuration status (not actual values for security)."""
         try:
-            # Get credentials status with extra logging for debuggingus with extra logging for debugging
+            # Get credentials status with extra logging for debugging
             try:
-                hf_username, hf_token = self.credentials_manager.get_huggingface_credentials()ntials_manager.get_huggingface_credentials()
-                logger.info(f"HuggingFace token found: {bool(hf_token)}")    logger.info(f"HuggingFace token found: {bool(hf_token)}")
-            except Exception as e:pt Exception as e:
-                logger.error(f"Error retrieving HuggingFace credentials: {e}")s: {e}")
+                hf_username, hf_token = self.credentials_manager.get_huggingface_credentials()
+                logger.info(f"HuggingFace token found: {bool(hf_token)}")
+            except Exception as e:
+                logger.error(f"Error retrieving HuggingFace credentials: {e}")
                 hf_username, hf_token = None, None
             
             try:
-                openai_key = self.credentials_manager.get_openai_key().credentials_manager.get_openai_key()
-                logger.info(f"OpenAI key found: {bool(openai_key)}")    logger.info(f"OpenAI key found: {bool(openai_key)}")
-            except Exception as e:pt Exception as e:
+                openai_key = self.credentials_manager.get_openai_key()
+                logger.info(f"OpenAI key found: {bool(openai_key)}")
+            except Exception as e:
                 logger.error(f"Error retrieving OpenAI key: {e}")
                 openai_key = None
             
             try:
-                neo4j_creds = self.credentials_manager.get_neo4j_credentials().credentials_manager.get_neo4j_credentials()
-                logger.info(f"Neo4j credentials found: {bool(neo4j_creds)}")    logger.info(f"Neo4j credentials found: {bool(neo4j_creds)}")
+                neo4j_creds = self.credentials_manager.get_neo4j_credentials()
+                logger.info(f"Neo4j credentials found: {bool(neo4j_creds)}")
             except Exception as e:
-                logger.error(f"Error retrieving Neo4j credentials: {e}")ials: {e}")
+                logger.error(f"Error retrieving Neo4j credentials: {e}")
                 neo4j_creds = None
             
-            # Get GitHub token using CredentialsManagerenv file
-            try:viron.get("GITHUB_TOKEN", "")
-                github_token = self.credentials_manager.get_github_token()nfo(f"GitHub token in environment: {bool(github_token)}")
+            # Get GitHub token using CredentialsManager
+            try:
+                github_token = self.credentials_manager.get_github_token()
                 logger.info(f"GitHub token found: {bool(github_token)}")
-            except Exception as e:ly as a fallback
+            except Exception as e:
                 logger.error(f"Error retrieving GitHub token: {e}")
                 github_token = None
             
             # Check for missing required configurations
             missing_configs = []
             
-            # Check for HuggingFace token.search(r'^GITHUB_TOKEN=(.+)$', content, re.MULTILINE)
             if not hf_token:
-                missing_configs.append("huggingface_token")                    github_token = match.group(1)
-            en found in .env file")
-            # Return status of each configuration item as e:
-            return {        logger.error(f"Error checking .env file for GitHub token: {e}")
+                missing_configs.append("huggingface_token")
+            
+            if not github_token:
+                missing_configs.append("github_token")
+            
+            if not openai_key:
+                missing_configs.append("openai_api_key")
+            
+            if not neo4j_creds:
+                missing_configs.append("neo4j_credentials")
+            
+            # Return status of each configuration item
+            return {
                 "success": True,
-                "message": "Configuration status retrieved",ing required configurations
+                "message": "Configuration status retrieved",
                 "data": {
                     "huggingface_configured": bool(hf_token),
                     "github_configured": bool(github_token),
-                    "openai_configured": bool(openai_key),f_token:
-                    "neo4j_configured": bool(neo4j_creds),append("huggingface_token")
+                    "openai_configured": bool(openai_key),
+                    "neo4j_configured": bool(neo4j_creds),
                     "missing_configs": missing_configs
-                }us of each configuration item
+                }
             }
-        except Exception as e:
-            logger.error(f"Error retrieving configuration: {e}")",
-            raise HTTPException(status_code=500, detail=f"Failed to retrieve configuration: {str(e)}")            }
         except Exception as e:
             logger.error(f"Error retrieving configuration: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve configuration: {str(e)}")

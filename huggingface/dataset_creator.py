@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class DatasetCreator:
-    """Create Hugging Face datasets from repository content."""
+    """Create HuggingFace datasets from repository content."""
 
     def __init__(self, huggingface_token=None):
         self.token = huggingface_token
@@ -30,7 +30,7 @@ class DatasetCreator:
         source_info=None,
         progress_callback=None,
     ):
-        """Create a Hugging Face dataset from file data.
+        """Create a HuggingFace dataset from file data.
         
         Args:
             file_data_list (list): List of file data dictionaries
@@ -140,7 +140,7 @@ class DatasetCreator:
             raise
 
     def push_to_hub(self, dataset, repo_name, private=True, progress_callback=None, commit_message=None):
-        """Push a dataset to the Hugging Face Hub.
+        """Push a dataset to the HuggingFace Hub.
         
         Args:
             dataset: The dataset to push to the Hub
@@ -153,11 +153,11 @@ class DatasetCreator:
             bool: Whether the operation was successful
         """
         if not self.token:
-            logger.error("Hugging Face token not provided. Cannot push to Hub.")
+            logger.error("HuggingFace token not provided. Cannot push to Hub.")
             return False
 
         try:
-            logger.info(f"Pushing dataset to Hugging Face Hub: {repo_name}")
+            logger.info(f"Pushing dataset to HuggingFace Hub: {repo_name}")
             # Check if the repo exists
             try:
                 repo_exists = any(repo.id == repo_name for repo in self.api.list_datasets(author=self.api.whoami(self.token)["name"]))
@@ -168,7 +168,7 @@ class DatasetCreator:
             # If commit_message is not provided, generate a default one
             commit_message = commit_message or ("Update dataset" if repo_exists else "Upload dataset")
             
-            # Push the dataset to the Hugging Face Hub
+            # Push the dataset to the HuggingFace Hub
             dataset.push_to_hub(
                 repo_name, 
                 token=self.token, 
@@ -198,7 +198,7 @@ class DatasetCreator:
         _test_data=None
     ):
         """
-        Create a dataset and push it to the Hugging Face Hub.
+        Create a dataset and push it to the HuggingFace Hub.
         
         Args:
             file_data_list: List of file data to include in the dataset
@@ -747,7 +747,7 @@ class DatasetCreator:
             if success and export_to_knowledge_graph:
                 _progress_callback(91, "Exporting to knowledge graph")
                 try:
-                    from knowledge_graph.graph_store import GraphStore
+                    from neo4j.graph_store import GraphStore
                     
                     # Initialize graph store with specified graph name
                     graph_store = GraphStore(graph_name=graph_name)
