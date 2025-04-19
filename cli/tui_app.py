@@ -1,8 +1,3 @@
-import sys
-import logging
-import asyncio
-from utils.llm_client import LLMClient
-from config.credentials_manager import CredentialsManager
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
@@ -13,13 +8,13 @@ from textual.widgets import (
     Label,
     Panel,
     Markdown,
+    Status,
     ListView,
+    Checkbox,
+    Frame,
 )
 
-# Setup logger
-logger = logging.getLogger(__name__)
-
-class AIAssistantApp(App):
+class TUIApp(App):
     CSS_PATH = "tui_app.css"
 
     def compose(self) -> ComposeResult:
@@ -52,34 +47,5 @@ class AIAssistantApp(App):
         # Placeholder for AI response logic
         return f"Response to: {query}"
 
-def ai_assistant():
-    """
-    Run a full-featured AI assistant in TUI mode, supporting all capabilities
-    available in the web interface.
-    """
-    app = AIAssistantApp()
-    app.run()
-
-def requires_agent_capabilities(query):
-    """
-    Determine if a query requires agent capabilities by looking for keywords.
-    
-    Args:
-        query: The user's query
-        
-    Returns:
-        bool: True if the query likely requires agent capabilities
-    """
-    agent_keywords = [
-        "crawl", "scrape", "extract", "website", "search", "github", 
-        "repository", "knowledge graph", "graph", "dataset", "datasets",
-        "find", "look up", "research", "information about"
-    ]
-    
-    query_lower = query.lower()
-    return any(keyword in query_lower for keyword in agent_keywords)
-
 if __name__ == "__main__":
-    # This allows testing the assistant directly by running this file
-    logging.basicConfig(level=logging.INFO)
-    ai_assistant()
+    TUIApp().run()
