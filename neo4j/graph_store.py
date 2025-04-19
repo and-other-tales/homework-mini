@@ -9,7 +9,7 @@ import uuid
 from langchain_neo4j import Neo4jGraph
 from langchain_core.documents import Document
 from langchain_experimental.graph_transformers import LLMGraphTransformer
-from langchain_openai import ChatOpenAI
+from langchain_aws import ChatBedrockConverse
 
 logger = logging.getLogger(__name__)
 
@@ -360,7 +360,12 @@ class GraphStore:
                 return False
             
             # Initialize LLM
-            llm = ChatOpenAI(temperature=0, model_name="gpt-4-turbo", api_key=api_key)
+            llm = ChatBedrockConverse(
+                model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                region_name="us-east-1",
+                temperature=0,
+                max_tokens=1000
+            )
             
             # Define allowed node types and relationships
             allowed_nodes = [

@@ -1,0 +1,181 @@
+/* Modern styles for the TUI application */
+
+Screen {
+    background: #111111;
+    color: #eeeeee;
+}
+
+Header {
+    background: #222222;
+    color: #ffffff;
+    height: 1;
+    padding: 0 1;
+}
+
+Footer {
+    background: #222222;
+    color: #ffffff;
+}
+
+Label {
+    color: #ffffff;
+    padding: 0 1;
+}
+
+.title {
+    margin: 1 0;
+    text-align: center;
+    background: #222222;
+    color: #ffffff;
+    padding: 1;
+    font-size: 24;
+    width: 100%;
+    border: solid #555555;
+}
+
+Button {
+    margin: 1 2;
+    width: 15;
+    content-align: center;
+    background: #333333;
+    color: #ffffff;
+    border: none;
+}
+
+Button:hover {
+    background: #444444;
+}
+
+Button:focus {
+    background: #555555;
+}
+
+Button.primary {
+    background: #006699;
+    color: #ffffff;
+}
+
+Button.primary:hover {
+    background: #0088cc;
+}
+
+Input {
+    margin: 1 1;
+    width: 1fr;
+    background: #222222;
+    color: #eeeeee;
+    border: solid #555555;
+    height: 3;
+}
+
+Input:focus {
+    border: solid #0088cc;
+}
+
+TextInput {
+    margin: 1 1;
+    width: 1fr;
+    background: #222222;
+    color: #eeeeee;
+    border: solid #555555;
+}
+
+ScrollableContainer {
+    height: 1fr;
+    width: 100%;
+    border: solid #444444;
+    background: #171717;
+}
+
+ListView {
+    height: 100%;
+    overflow-y: auto;
+    background: #171717;
+    color: #dddddd;
+    border: solid #444444;
+}
+
+Static {
+    margin: 0;
+    padding: 0 1;
+}
+
+Markdown {
+    margin: 0;
+    padding: 0 1 1 1;
+}
+
+Panel {
+    background: #222222;
+    color: #ffffff;
+    border: solid #444444;
+    margin: 0;
+    padding: 0;
+}
+
+LoadingIndicator {
+    color: #0088cc;
+    height: 1;
+}
+
+LoadingIndicator.hide {
+    display: none;
+}
+
+#main_container {
+    height: 100%;
+    background: #111111;
+    padding: 1;
+}
+
+#message_container {
+    height: 1fr;
+    min-height: 20;
+}
+
+#left_panel {
+    width: 32;
+    background: #1a1a1a;
+    padding: 1;
+}
+
+#right_panel {
+    width: 1fr;
+    background: #111111;
+    padding: 1;
+}
+
+#input_area {
+    width: 100%;
+    height: auto;
+    background: #1a1a1a;
+    margin: 1 0;
+    padding: 0;
+}
+
+#input_container {
+    margin: 0 0 1 0;
+    height: auto;
+    background: #1a1a1a;
+    padding: 1;
+}
+
+#input_container.hide {
+    display: none;
+}
+
+.message-heading {
+    padding: 1 1;
+    background: #1a1a1a;
+    width: 100%;
+}
+
+.message-content {
+    padding: 0 2 1 2;
+    background: #171717;
+    margin-bottom: 1;
+}
+
+.messages {
+    padding: 1;
+}

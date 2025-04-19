@@ -1,6 +1,7 @@
 import logging
 from config.credentials_manager import CredentialsManager
 from github.client import GitHubClient
+from github.content_fetcher import ContentFetcher
 from huggingface.dataset_creator import DatasetCreator
 from neo4j.graph_store import GraphStore
 from textual.app import App, ComposeResult
@@ -69,15 +70,22 @@ class GitHubDatasetApp(App):
                         status += f" - {message}"
                     self.query_one(ListView).append(Label(status))
 
-            content_fetcher = ContentFetcher(github_token=None)
+            # Get GitHub token
+            github_token = credentials_manager.get_github_token()
+            content_fetcher = ContentFetcher(github_token=github_token)
             content_files = content_fetcher.fetch_single_repository(repo_url, progress_callback=progress_callback)
 
             if not content_files:
                 self.query_one(ListView).append(Label("No content found in repository or error occurred during fetch."))
                 return
 
-            dataset_name = "example_dataset"
-            description = "Example dataset description"
+            # Use default values for dataset name and description based on repo URL
+            dataset_name = f"github_{repo_url.split('/')[-1]}"
+            description = f"Dataset created from GitHub repository: {repo_url}"
+            
+            # Show details to user
+            self.query_one(ListView).append(Label(f"Creating dataset with name: {dataset_name}"))
+            self.query_one(ListView).append(Label(f"Description: {description}"))
             result = dataset_creator.create_and_push_dataset(
                 file_data_list=content_files,
                 dataset_name=dataset_name,

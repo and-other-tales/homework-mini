@@ -5,14 +5,11 @@ import time
 import os
 import ssl
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Header, Request, Response, WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import FastAPI, HTTPException, Depends, Header, Request, Response, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any, Union, Callable
@@ -106,8 +103,6 @@ app = FastAPI(
 from .agent_routes import router as agent_router
 app.include_router(agent_router, prefix="/api", tags=["Agent"])
 
-# Initialize templates (commented out as templates are not needed)
-# templates = Jinja2Templates(directory="web/templates")
 
 # Add security middlewares
 app.add_middleware(SecurityHeadersMiddleware)
@@ -698,7 +693,7 @@ def set_api_key(key):
     API_KEY = key
 
 
-def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=None, key_file=None, with_ui=False):
+def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=None, key_file=None):
     """
     Start the FastAPI server using Uvicorn with optional HTTPS support.
     
@@ -709,7 +704,6 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
         use_https: Whether to use HTTPS
         cert_file: Path to SSL certificate file (required if use_https is True)
         key_file: Path to SSL key file (required if use_https is True)
-        with_ui: Whether to enable the web UI
         
     Returns:
         dict: Server status information or False if server couldn't be started
@@ -730,55 +724,7 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
             logger.error(f"SSL key file not found: {key_file}")
             return False
     
-    # Add routes if UI is enabled
-    if with_ui:
-        # Add UI routes
-        @app.get("/", response_class=HTMLResponse)
-        async def get_dashboard(request: Request):
-            """Render the dashboard page"""
-            # Return a simple response instead of using templates
-            return HTMLResponse(content="<html><body><h1>API Server is Running</h1><p>Please use the frontend at <a href='http://localhost:3000'>http://localhost:3000</a></p></body></html>")
-        
-        @app.get("/chat", response_class=HTMLResponse)
-        async def get_chat(request: Request):
-            """Render the chat interface page"""
-            # Determine WebSocket URL
-            protocol = "wss" if use_https else "ws"
-            websocket_url = f"{protocol}://{request.headers.get('host', f'{host}:{port}')}/ws"
-            
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>Chat API is Running</h1><p>Please use the frontend chat at <a href='http://localhost:3000/chat'>http://localhost:3000/chat</a></p></body></html>")
-        
-        # Additional UI routes
-        @app.get("/github", response_class=HTMLResponse)
-        async def get_github(request: Request):
-            """Render the GitHub page"""
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>GitHub API is Running</h1><p>Please use the frontend GitHub page at <a href='http://localhost:3000/github'>http://localhost:3000/github</a></p></body></html>")
-            
-        @app.get("/huggingface", response_class=HTMLResponse)
-        async def get_huggingface(request: Request):
-            """Render the HuggingFace page"""
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>HuggingFace API is Running</h1><p>Please use the frontend HuggingFace page at <a href='http://localhost:3000/huggingface'>http://localhost:3000/huggingface</a></p></body></html>")
-            
-        @app.get("/knowledge_graphs", response_class=HTMLResponse)
-        async def get_knowledge_graphs(request: Request):
-            """Render the Knowledge Graphs page"""
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>Knowledge Graphs API is Running</h1><p>Please use the frontend Knowledge Graphs page at <a href='http://localhost:3000/knowledge_graphs'>http://localhost:3000/knowledge_graphs</a></p></body></html>")
-        @app.get("/tasks", response_class=HTMLResponse)
-        async def get_tasks(request: Request):
-            """Render the tasks page"""
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>Tasks API is Running</h1><p>Please use the frontend Tasks page at <a href='http://localhost:3000/tasks'>http://localhost:3000/tasks</a></p></body></html>")
-        
-        @app.get("/configuration", response_class=HTMLResponse)
-        async def get_configuration(request: Request):
-            """Render the configuration page"""
-            # Return a simple response redirecting to frontend
-            return HTMLResponse(content="<html><body><h1>Configuration API is Running</h1><p>Please use the frontend Configuration page at <a href='http://localhost:3000/configuration'>http://localhost:3000/configuration</a></p></body></html>")
-
+    
     def run_server():
         import uvicorn
         
@@ -796,9 +742,6 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
             logger.info(f"OpenAPI Schema available at: https://{host}:{port}/openapi.json")
             logger.info(f"API Documentation available at: https://{host}:{port}/docs")
             
-            if with_ui:
-                logger.info(f"Web UI available at: https://{host}:{port}/")
-                logger.info(f"Chat Interface available at: https://{host}:{port}/chat")
             
             # Run with SSL context
             uvicorn.run(
@@ -815,9 +758,6 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
             logger.info(f"OpenAPI Schema available at: http://{host}:{port}/openapi.json")
             logger.info(f"API Documentation available at: http://{host}:{port}/docs")
             
-            if with_ui:
-                logger.info(f"Web UI available at: http://{host}:{port}/")
-                logger.info(f"Chat Interface available at: http://{host}:{port}/chat")
                 
             logger.warning("Running in HTTP mode. Consider using HTTPS for production deployments.")
             
@@ -851,29 +791,9 @@ def start_server(api_key, host="0.0.0.0", port=8080, use_https=False, cert_file=
         "protocol": protocol,
         "api_docs_url": f"{protocol}://{host}:{port}/docs",
         "openapi_url": f"{protocol}://{host}:{port}/openapi.json",
-        "using_https": use_https,
-        "web_ui": with_ui,
-        "web_ui_url": f"{protocol}://{host}:{port}/" if with_ui else None,
-        "chat_url": f"{protocol}://{host}:{port}/chat" if with_ui else None
+        "using_https": use_https
     }
 
-def start_server_with_ui(api_key=None, host="0.0.0.0", port=8080, use_https=False, cert_file=None, key_file=None):
-    """
-    Start the server with web UI enabled
-    
-    Args:
-        api_key: API key for authentication
-        host: Host to bind the server to
-        port: Port to bind the server to
-        use_https: Whether to use HTTPS
-        cert_file: Path to SSL certificate file (required if use_https is True)
-        key_file: Path to SSL key file (required if use_https is True)
-        
-    Returns:
-        dict: Server status information or False if server couldn't be started
-    """
-    return start_server(api_key, host=host, port=port, use_https=use_https, 
-                        cert_file=cert_file, key_file=key_file, with_ui=True)
 
 
 def stop_server():

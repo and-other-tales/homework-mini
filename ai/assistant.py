@@ -1,8 +1,13 @@
+"""AI Assistant module for LLM interaction using AWS Bedrock and LangChain React agent."""
+
 import sys
 import logging
 import asyncio
+from typing import Optional, Dict, Any
+
 from utils.llm_client import LLMClient
 from config.credentials_manager import CredentialsManager
+from ai.agent import run_agent
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -11,29 +16,54 @@ from rich import print as rich_print
 # Setup logger
 logger = logging.getLogger(__name__)
 
+async def generate_ai_response(query: str, credentials_manager: Optional[CredentialsManager] = None) -> str:
+    """
+    Generate an AI response using the appropriate method based on the query.
+    
+    Args:
+        query: The user query
+        credentials_manager: Optional credentials manager
+        
+    Returns:
+        str: The generated response
+    """
+    # Initialize LLM client
+    llm_client = LLMClient(credentials_manager=credentials_manager)
+    
+    try:
+        # Use agent-based response if the query seems to require tools
+        if requires_agent_capabilities(query):
+            logger.info("Query requires agent capabilities, using React agent")
+            result = await run_agent(query)
+            if result and result.get("success"):
+                return result.get("response", "I encountered an error processing your request.")
+            else:
+                return "I encountered an error processing your request with agent capabilities."
+        else:
+            # Use standard chat completion for simple queries
+            logger.info("Using standard response generation")
+            return await llm_client.generate_response(query)
+    except Exception as e:
+        logger.error(f"Error generating response: {e}", exc_info=True)
+        return f"I encountered an error: {str(e)}"
+
+
 def run_full_ai_assistant():
     """
     Run a full-featured AI assistant in CLI mode, supporting all capabilities
-    available in the web interface.
+    available in the TUI interface.
     """
     console = Console()
     console.print("\n[bold blue]🤖 AI Assistant[/bold blue] [green]CLI Mode[/green]\n")
     console.print("Type [bold]'exit'[/bold] or [bold]'quit'[/bold] to return to the main menu.\n")
     
-    # Initialize LLM client
+    # Initialize credentials manager
     credentials_manager = CredentialsManager()
-    openai_key = credentials_manager.get_openai_key()
+    aws_credentials = credentials_manager.get_aws_credentials()
     
-    if not openai_key:
-        console.print("[bold red]Error:[/bold red] OpenAI API key not configured.")
-        console.print("Please set your OpenAI API key in the Configuration menu first.")
-        return
-    
-    llm_client = LLMClient(api_key=openai_key, credentials_manager=credentials_manager)
-    
-    # Check if LLM client is properly initialized
-    if not llm_client.api_key:
-        console.print("[bold red]Error:[/bold red] Failed to initialize LLM client.")
+    if not aws_credentials or not aws_credentials.get("access_key") or not aws_credentials.get("secret_key"):
+        console.print("[bold red]Error:[/bold red] AWS credentials not configured.")
+        console.print("Please set your AWS credentials in the Configuration menu first.")
         return
     
     # Show capabilities info
@@ -53,13 +83,6 @@ def run_full_ai_assistant():
     asyncio.set_event_loop(loop)
     
     # Start conversation
-    conversation_history = []
-    conversation_history.append({
-        "role": "system",
-        "content": "You are an AI assistant for the Homework project. Your primary focus is helping users gather "
-                 "and organize information through web searching, web crawling, and dataset creation."
-    })
-    
     try:
         while True:
             console.print("[bold blue]You:[/bold blue] ", end="")
@@ -71,27 +94,14 @@ def run_full_ai_assistant():
             
             # Show thinking indicator
             with console.status("[bold blue]Thinking...[/bold blue]"):
-                # Add user message to conversation history
-                conversation_history.append({"role": "user", "content": user_input})
-                
                 # Generate response
                 try:
-                    # Use agent-based response if the query seems to require tools
-                    if requires_agent_capabilities(user_input):
-                        response = loop.run_until_complete(llm_client.run_agent(user_input))
-                        if response and response.get("success") and response.get("data"):
-                            assistant_response = response["data"].get("response", "I encountered an error processing your request.")
-                        else:
-                            assistant_response = "I encountered an error processing your request."
-                    else:
-                        # Use standard chat completion for simple queries
-                        assistant_response = loop.run_until_complete(llm_client.generate_response(user_input))
+                    assistant_response = loop.run_until_complete(
+                        generate_ai_response(user_input, credentials_manager)
+                    )
                 except Exception as e:
                     logger.error(f"Error generating response: {e}", exc_info=True)
                     assistant_response = f"I encountered an error: {str(e)}"
-                
-                # Add assistant response to conversation history
-                conversation_history.append({"role": "assistant", "content": assistant_response})
             
             # Display the response with markdown formatting
             console.print("\n[bold blue]AI Assistant:[/bold blue]")
@@ -107,7 +117,8 @@ def run_full_ai_assistant():
         # Close the event loop
         loop.close()
 
-def requires_agent_capabilities(query):
+
+def requires_agent_capabilities(query: str) -> bool:
     """
     Determine if a query requires agent capabilities by looking for keywords.
     
@@ -120,11 +131,13 @@ def requires_agent_capabilities(query):
     agent_keywords = [
         "crawl", "scrape", "extract", "website", "search", "github", 
         "repository", "knowledge graph", "graph", "dataset", "datasets",
-        "find", "look up", "research", "information about"
+        "find", "look up", "research", "information about", "tool", "when",
+        "how", "what time", "current", "latest"
     ]
     
     query_lower = query.lower()
     return any(keyword in query_lower for keyword in agent_keywords)
+
 
 if __name__ == "__main__":
     # This allows testing the assistant directly by running this file

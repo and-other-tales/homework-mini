@@ -74,11 +74,15 @@ class CredentialsManager:
     NEO4J_URI_KEY = "neo4j_uri"
     NEO4J_USER_KEY = "neo4j_username"
     NEO4J_PASSWORD_KEY = "neo4j_password"
+    AWS_ACCESS_KEY = "aws_access_key"
+    AWS_SECRET_KEY = "aws_secret_key"
+    AWS_REGION_KEY = "aws_region"
     CONFIG_FILE = CONFIG_DIR / "config.json"
     
     # Default settings
     DEFAULT_SERVER_PORT = 8080
     DEFAULT_TEMP_DIR = str(Path(os.path.expanduser("~/.othertales_homework/temp")))
+    DEFAULT_AWS_REGION = "us-east-1"
 
     def __init__(self):
         self._ensure_config_file_exists()
@@ -578,6 +582,150 @@ class CredentialsManager:
             logger.error(f"Failed to load config: {e}")
             return {"huggingface_username": ""}
 
+    def save_aws_credentials(self, access_key, secret_key, region=None):
+        """Save AWS credentials."""
+        try:
+            config = self._load_config()
+            
+            if not region:
+                region = self.DEFAULT_AWS_REGION
+                
+            # Try to use keyring if available
+            if self.has_keyring:
+                try:
+                    self.keyring.set_password(self.SERVICE_NAME, self.AWS_ACCESS_KEY, access_key)
+                    self.keyring.set_password(self.SERVICE_NAME, self.AWS_SECRET_KEY, secret_key)
+                    self.keyring.set_password(self.SERVICE_NAME, self.AWS_REGION_KEY, region)
+                    logger.info("Saved AWS credentials to keyring")
+                except Exception as e:
+                    logger.warning(f"Keyring save failed, storing in config file: {e}")
+                    config["aws_access_key"] = access_key
+                    config["aws_secret_key"] = secret_key
+                    config["aws_region"] = region
+            else:
+                # Save in config file if keyring not available
+                config["aws_access_key"] = access_key
+                config["aws_secret_key"] = secret_key
+                config["aws_region"] = region
+                logger.info("Saved AWS credentials to config file")
+                    
+            self._save_config(config)
+            
+            # Also set the environment variables
+            os.environ["AWS_ACCESS_KEY_ID"] = access_key
+            os.environ["AWS_SECRET_ACCESS_KEY"] = secret_key
+            os.environ["AWS_REGION"] = region
+            
+            logger.info(f"Saved AWS credentials with region {region}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save AWS credentials: {e}")
+            return False
+            
+    def get_aws_credentials(self):
+        """Get AWS credentials."""
+        config = self._load_config()
+        access_key = None
+        secret_key = None
+        region = self.DEFAULT_AWS_REGION
+        
+        # First check environment variables (highest priority)
+        env_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
+        env_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        env_region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+        
+        if env_access_key and env_secret_key:
+            logger.info("Using AWS credentials from OS environment variables")
+            return {
+                "access_key": env_access_key,
+                "secret_key": env_secret_key,
+                "region": env_region or region
+            }
+        
+        # Try to get credentials from our loaded env vars
+        env_var_access_key = self.env_vars.get("aws_access_key_id") or self.env_vars.get("AWS_ACCESS_KEY_ID")
+        env_var_secret_key = self.env_vars.get("aws_secret_access_key") or self.env_vars.get("AWS_SECRET_ACCESS_KEY")
+        env_var_region = self.env_vars.get("aws_region") or self.env_vars.get("AWS_REGION") or self.env_vars.get("AWS_DEFAULT_REGION")
+        
+        if env_var_access_key and env_var_secret_key:
+            logger.info("Using AWS credentials from loaded environment variables")
+            return {
+                "access_key": env_var_access_key,
+                "secret_key": env_var_secret_key,
+                "region": env_var_region or region
+            }
+        
+        # Try to get credentials from keyring if available
+        if self.has_keyring:
+            try:
+                access_key = self.keyring.get_password(self.SERVICE_NAME, self.AWS_ACCESS_KEY)
+                secret_key = self.keyring.get_password(self.SERVICE_NAME, self.AWS_SECRET_KEY)
+                keyring_region = self.keyring.get_password(self.SERVICE_NAME, self.AWS_REGION_KEY)
+                
+                if access_key and secret_key:
+                    logger.info("Retrieved AWS credentials from keyring")
+                    return {
+                        "access_key": access_key,
+                        "secret_key": secret_key,
+                        "region": keyring_region or region
+                    }
+            except Exception as e:
+                logger.warning(f"Error accessing keyring: {e}")
+                # Don't retry keyring operations for this session
+                global HAS_KEYRING
+                HAS_KEYRING = False
+                self.has_keyring = False
+        
+        # If not found in keyring, try config file
+        if "aws_access_key" in config and "aws_secret_key" in config:
+            access_key = config.get("aws_access_key")
+            secret_key = config.get("aws_secret_key")
+            config_region = config.get("aws_region")
+            
+            if access_key and secret_key:
+                logger.info("Using AWS credentials from config file")
+                return {
+                    "access_key": access_key,
+                    "secret_key": secret_key,
+                    "region": config_region or region
+                }
+        
+        # As a last resort, check .env file directly
+        try:
+            env_file = Path(".env")
+            if env_file.exists():
+                logger.info("Checking .env file directly for AWS credentials")
+                env_content = env_file.read_text()
+                import re
+                
+                access_key_match = re.search(r'AWS_ACCESS_KEY_ID=(.+)', env_content)
+                secret_key_match = re.search(r'AWS_SECRET_ACCESS_KEY=(.+)', env_content)
+                region_match = re.search(r'AWS_REGION=(.+)', env_content) or re.search(r'AWS_DEFAULT_REGION=(.+)', env_content)
+                
+                if access_key_match and secret_key_match:
+                    access_key = access_key_match.group(1).strip()
+                    secret_key = secret_key_match.group(1).strip()
+                    if region_match:
+                        region = region_match.group(1).strip()
+                    
+                    if access_key and secret_key:
+                        logger.info("Found AWS credentials directly in .env file")
+                        # Set them in the environment so they're available for future calls
+                        os.environ["AWS_ACCESS_KEY_ID"] = access_key
+                        os.environ["AWS_SECRET_ACCESS_KEY"] = secret_key
+                        os.environ["AWS_REGION"] = region
+                        
+                        return {
+                            "access_key": access_key,
+                            "secret_key": secret_key,
+                            "region": region
+                        }
+        except Exception as e:
+            logger.warning(f"Error reading .env file directly: {e}")
+        
+        logger.warning("AWS credentials not found in any location")
+        return None
+
     def _save_config(self, config):
         """Save configuration to file with basic security measures."""
         try:
@@ -588,7 +736,8 @@ class CredentialsManager:
             safe_config = config.copy()
             sensitive_keys = [
                 "huggingface_token", "openapi_key", "openai_key",
-                "neo4j_password", "neo4j_uri", "neo4j_username", "github_token"
+                "neo4j_password", "neo4j_uri", "neo4j_username", "github_token",
+                "aws_access_key", "aws_secret_key"
             ]
             for key in sensitive_keys:
                 if key in safe_config:

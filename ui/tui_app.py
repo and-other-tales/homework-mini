@@ -44,8 +44,23 @@ class TUIApp(App):
             self.query_one(ListView).append(Label(response))
 
     async def get_ai_response(self, query: str) -> str:
-        # Placeholder for AI response logic
-        return f"Response to: {query}"
+        try:
+            # Initialize LLM client with credentials manager
+            from utils.llm_client import LLMClient
+            from config.credentials_manager import CredentialsManager
+            
+            credentials_manager = CredentialsManager()
+            llm_client = LLMClient(credentials_manager=credentials_manager)
+            
+            # Check if we have an API key
+            if not llm_client.api_key:
+                return "OpenAI API key not configured. Please set up your API key in the Configuration page."
+                
+            # Generate response
+            return await llm_client.generate_response(query)
+                
+        except Exception as e:
+            return f"Error: {str(e)}"
 
 if __name__ == "__main__":
     TUIApp().run()
